@@ -2,9 +2,9 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 import streamlit as st
-import importlib.util
-import os
 import pandas as pd
+
+from klipso.agents.viz import run as run_viz
 
 st.set_page_config(
     page_title="Spotify Editorial Intelligence",
@@ -15,12 +15,7 @@ st.set_page_config(
 # ── Load viz ───────────────────────────────────────────────────────────────
 @st.cache_data
 def load_viz():
-    spec = importlib.util.spec_from_file_location(
-        "viz", os.path.join(os.path.dirname(__file__), "agents", "05_viz.py")
-    )
-    viz = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(viz)
-    return viz.run(inputs_dir="inputs", outputs_dir="outputs")
+    return run_viz(inputs_dir="inputs", outputs_dir="outputs")
 
 with st.spinner("Cargando datos..."):
     result = load_viz()

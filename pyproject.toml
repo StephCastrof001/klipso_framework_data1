@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "klipso"
+version = "0.1.0"
+description = "Framework de análisis con IA: determinístico (A), HITL (B) y RAG+Memoria (C)"
+requires-python = ">=3.9"
+readme = "README.md"
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "plotly>=5.0",
+    "langchain-core>=0.3",
+    "langchain-openai>=0.2",
+    "langchain-aws>=0.2",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+profiling = ["ydata-profiling", "sweetviz"]
+hitl = ["langgraph>=0.2"]
+rag = ["langgraph>=0.2", "mem0ai", "faiss-cpu"]
+dev = ["streamlit>=1.30", "pytest", "black", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["klipso*"]

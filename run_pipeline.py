@@ -1,81 +1,76 @@
-"""Pipeline completo — ejecuta los 4 agentes Spotify en secuencia."""
+"""
+Pipeline orchestrator — runs Model A agents in sequence.
+
+Usage:
+    python run_pipeline.py --main-csv inputs/foo.csv --competition-csv inputs/bar.csv
+
+The pipeline passes df_merged from Agent 2 → Agent 3 to avoid re-reading and re-cleaning.
+"""
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
-import importlib.util
+
+import argparse
 import time
 from pathlib import Path
 
-AGENTS_DIR = Path(__file__).parent / "agents"
+from klipso.agents.data_recon import run_recon
+from klipso.agents.eda import run_eda
+from klipso.agents.hypothesis import run_hypothesis
+from klipso.agents.business_tx import run_business_tx
 
 
-def _load_agent(filename: str):
-    """Carga un módulo con nombre numérico que Python no puede importar directamente."""
-    path = AGENTS_DIR / filename
-    spec = importlib.util.spec_from_file_location(filename.replace(".", "_"), path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def run_pipeline() -> dict:
+def run_pipeline(main_csv: str, competition_csv: str, outputs_dir: str = "outputs") -> dict:
     print("=" * 60)
-    print("PIPELINE SPOTIFY EDITORIAL — INICIO")
+    print("KLIPSO MODEL A PIPELINE — START")
     print("=" * 60)
 
-    # --- Agente 1: Data Recon ---
+    Path(outputs_dir).mkdir(exist_ok=True)
+
     print("\n[1/4] DATA RECON")
     print("-" * 40)
     t0 = time.time()
-    agent01 = _load_agent("01_data_recon.py")
-    recon_result = agent01.run_recon()
-    print(f"Agente 1 completado en {time.time() - t0:.1f}s")
+    recon_result = run_recon(spotify_path=main_csv, competition_path=competition_csv)
+    print(f"Agent 1 done in {time.time() - t0:.1f}s")
 
-    # --- Agente 2: EDA Auto ---
-    print("\n[2/4] EDA AUTO")
+    print("\n[2/4] EDA")
     print("-" * 40)
     t0 = time.time()
-    agent02 = _load_agent("02_eda_auto.py")
-    eda_result = agent02.run_eda()
-    print(f"Agente 2 completado en {time.time() - t0:.1f}s")
+    eda_result = run_eda(
+        spotify_path=main_csv,
+        competition_path=competition_csv,
+        outputs_dir=outputs_dir,
+    )
+    print(f"Agent 2 done in {time.time() - t0:.1f}s")
 
-    # --- Agente 3: Hypothesis Testing (reutiliza df_merged del Agente 2) ---
     print("\n[3/4] HYPOTHESIS TESTING")
     print("-" * 40)
     t0 = time.time()
-    agent03 = _load_agent("03_hypothesis.py")
-    hypothesis_result = agent03.run_hypothesis(
-        df_merged=eda_result.get("df_merged")  # evita re-leer y re-limpiar CSVs
+    hypothesis_result = run_hypothesis(
+        df_merged=eda_result.get("df_merged"),  # reuses cleaned df — avoids re-reading CSVs
     )
-    print(f"Agente 3 completado en {time.time() - t0:.1f}s")
+    print(f"Agent 3 done in {time.time() - t0:.1f}s")
 
-    # --- Agente 4: Business Translation ---
     print("\n[4/4] BUSINESS TRANSLATION")
     print("-" * 40)
     t0 = time.time()
-    agent04 = _load_agent("04_business_tx.py")
-    brief = agent04.run_business_tx(
+    brief = run_business_tx(
         recon_result=recon_result,
         eda_result=eda_result,
         hypothesis_result=hypothesis_result,
+        outputs_dir=outputs_dir,
     )
-    print(f"Agente 4 completado en {time.time() - t0:.1f}s")
+    print(f"Agent 4 done in {time.time() - t0:.1f}s")
 
-    # --- Resumen final ---
     print("\n" + "=" * 60)
-    print("PIPELINE COMPLETADO")
+    print("PIPELINE COMPLETE")
     print("=" * 60)
 
-    veredictos = {
-        key: hypothesis_result[key]["verdict"]
-        for key in ["h1", "h2", "h3", "h4"]
-    }
-    print("\nVeredictos de hipótesis:")
-    for h, v in veredictos.items():
-        print(f"  {h.upper()}: {v}")
+    print("\nHypothesis verdicts:")
+    for h in ["h1", "h2", "h3", "h4"]:
+        print(f"  {h.upper()}: {hypothesis_result[h]['verdict']}")
 
-    outputs_dir = Path(__file__).parent / "outputs"
-    print(f"\nOutputs generados en: {outputs_dir}")
-    for f in outputs_dir.glob("*"):
+    print(f"\nOutputs saved to: {outputs_dir}")
+    for f in Path(outputs_dir).glob("*"):
         print(f"  {f.name}")
 
     return {
@@ -87,4 +82,14 @@ def run_pipeline() -> dict:
 
 
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser(description="Klipso Model A — full pipeline")
+    parser.add_argument("--main-csv",        required=True, help="Path to main platform CSV")
+    parser.add_argument("--competition-csv", required=True, help="Path to cross-platform CSV")
+    parser.add_argument("--outputs-dir",     default="outputs", help="Output directory")
+    args = parser.parse_args()
+
+    run_pipeline(
+        main_csv=args.main_csv,
+        competition_csv=args.competition_csv,
+        outputs_dir=args.outputs_dir,
+    )
