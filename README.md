@@ -70,6 +70,51 @@ BRIEF FINAL    → respaldado por análisis propio + best practices externas + m
 
 ---
 
+## Outputs por modelo — qué produce cada uno
+
+### Modelo A — outputs determinísticos
+```
+outputs/
+├── viz_h1_playlists.html     ← scatter playlists vs streams + OLS trendline
+├── viz_h2_charts.html        ← boxplot top 25% charts vs resto
+├── viz_h3_timing.html        ← streams medianos por año de lanzamiento
+├── viz_h4_genres.html        ← top 10 géneros por mediana (horizontal bar)
+├── viz_dashboard.html        ← dashboard 2×2 las 4 hipótesis en una pantalla
+└── editorial_brief.md        ← criterios accionables generados por LLM
+```
+**Dashboard:** Streamlit app narrativa — 6 bloques (problema → dato roto → pipeline → hallazgos → impacto → stack)
+```bash
+streamlit run app.py          # localhost:8501
+```
+
+---
+
+### Modelo B — outputs HITL
+```
+outputs/
+├── eda_approved.html         ← EDA aprobado por PM
+├── hypothesis_approved.md    ← hipótesis validadas con dirección del PM
+├── viz_refined/              ← visualizaciones después de feedback humano
+└── brief_final.md            ← brief con decisiones del PM incorporadas
+```
+**Dashboard:** Streamlit con steps aprobables — cada sección tiene botón Aprobar / Redirigir
+**Diferencia clave vs A:** los gráficos reflejan las preguntas del PM, no las del agente.
+
+---
+
+### Modelo C — outputs enriquecidos
+```
+outputs/
+├── context_external.md       ← análisis externos indexados (Firecrawl + RAG)
+├── analysis_enriched.html    ← EDA con contexto externo integrado
+├── reflexion_log.md          ← qué revisó el agente de sí mismo, qué refinó
+├── memory_session.json       ← aprendizajes guardados para próximas sesiones
+└── brief_final.md            ← respaldado por análisis propio + best practices + memoria
+```
+**Dashboard:** Streamlit con panel de contexto externo visible — el lector ve qué fuentes alimentaron cada conclusión.
+
+---
+
 ## Comparación de enfoques
 
 | Dimensión | Modelo A | Modelo B | Modelo C |
