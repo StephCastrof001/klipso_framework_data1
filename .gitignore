@@ -1,0 +1,23 @@
+# Secrets
+.env
+
+# Data — cada instancia del framework pone su propia data
+inputs/
+outputs/
+
+# Reference repos
+refs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
