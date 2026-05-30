@@ -18,11 +18,13 @@ Pero llegamos a conclusiones distintas en puntos clave — y la razón es metodo
 ## Diferencia #1 — Describir vs Probar (la más importante)
 
 ### SarangGami
-Usa visualizaciones para **describir patrones** que ya se ven a simple vista:
+Usa visualizaciones para **describir patrones** que aparecen en el gráfico:
 > "Manhattan is the most expensive place to stay in NYC"
 > "Brooklyn comes second with cheaper prices"
 
-Conclusión correcta. Pero cualquiera que conozca Nueva York ya lo sabe.
+Conclusión correcta — y el método funciona para cualquier ciudad, no solo NYC.
+El patrón borough→precio es válido en Londres, Barcelona, Ciudad de México.
+**El límite no es el hallazgo, es que se queda en descripción.**
 
 ### Klipso
 Usa tests estadísticos para **probar que las diferencias son reales**, no ruido:
@@ -31,7 +33,8 @@ Usa tests estadísticos para **probar que las diferencias son reales**, no ruido
 
 **Para un PM esto importa porque:** una observación que "se ve en el gráfico" puede ser
 coincidencia del dataset. Una prueba estadística dice "si tomáramos otros 48,000 listings
-de NYC, este patrón seguiría apareciendo". La diferencia entre una anécdota y un hallazgo.
+de cualquier ciudad con estructura borough/barrio, este patrón seguiría apareciendo con
+alta probabilidad". La diferencia entre una anécdota y un hallazgo replicable.
 
 ---
 
@@ -53,6 +56,34 @@ Mediana NYC:  $106.0  ← lo que paga el 50% de los huéspedes realmente
 
 **Para un PM:** si usas media para fijar precios o benchmarks, estás comparando
 contra un número irreal. La mediana es el precio que encuentra un huésped típico.
+
+---
+
+## Diferencia #2.5 — Los outliers mueven la aguja (y eso importa)
+
+Este hallazgo robustece el análisis de forma contraintuitiva.
+
+Calculamos la correlación precio vs host_listings_count con tres versiones del dato:
+
+| Dataset | Pearson r | Interpretación |
+|---|---|---|
+| Raw (todos los datos) | 0.057 | Correlación casi nula |
+| Sin price=0 | 0.057 | Igual — los 11 casos no cambian nada |
+| Sin outliers extremos (p99, price ≤ $799) | **0.151** | Sube casi 3× |
+| SarangGami reportó | ~0.17 | Probablemente usaron algún recorte |
+
+**Qué significa esto:** los 239 listings con precio >$1,000 (0.5% del dataset)
+generan el 65% de la varianza en esa correlación. Un puñado de penthouses de
+Tribeca a $10,000/noche está distorsionando la relación entre hosts profesionales
+y precio para el 99.5% del mercado.
+
+**La lección metodológica:** antes de reportar una correlación, hay que verificar
+qué parte del dataset la está empujando. Si viene del 0.5% extremo, es un artefacto
+del dataset de lujo, no una señal del mercado general.
+
+**Esto suma al rigor de Klipso:** detectamos que aun con r=0.15 (recortado), el
+test formal dice p=0.305 — no significativo. La correlación visible en el gráfico
+no sobrevive al test de "¿es esto real o ruido?".
 
 ---
 
@@ -122,8 +153,9 @@ por qué tomaste cierta decisión.
 - "Consider investing in property near airports in Queens"
 - "Short-term stays dominate — hosts should accommodate shorter stays"
 
-Correcto pero **genérico**. Cualquier agente inmobiliario de NYC diría lo mismo
-sin analizar datos.
+Correcto pero **genérico**. Son observaciones que se derivan directamente de
+ver el mapa de la ciudad — no requieren análisis de datos para llegar ahí.
+Un agente inmobiliario sin dataset diría lo mismo basado en intuición.
 
 ### Klipso (criterios accionables)
 - Entire home cobra **2.3× más** que habitación privada — sin importar el barrio
