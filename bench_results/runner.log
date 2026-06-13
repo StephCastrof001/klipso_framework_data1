@@ -1,0 +1,7 @@
+[2026-06-13T19:11:52Z] BENCH START: iris
+[2026-06-13T19:14:22Z] BENCH DONE: iris → error (key=yes)
+[2026-06-13T19:14:22Z] BENCH START: spotify-2023
+[2026-06-13T19:19:01Z] BENCH DONE: spotify-2023 → error (key=yes)
+[2026-06-13T19:19:01Z] BENCH START: titanic
+[2026-06-13T19:22:16Z] BENCH DONE: titanic → error (key=yes)
+[2026-06-13T19:22:16Z] RUNNER FIN: 3 datasets procesados
