@@ -23,6 +23,18 @@ MODELS_OPENAI = {
     "nova-pro":    "gpt-4o",
 }
 
+# Ollama local (gratis) — todos los tasks mapean al modelo coder del EC2.
+# Usa el endpoint OpenAI-compatible de Ollama, así reusa langchain_openai.
+MODELS_OLLAMA = {
+    "sonnet":      "qwen35u-tools:9b",
+    "haiku":       "qwen35u-tools:9b",
+    "deepseek-r1": "qwen3-14b-32k:latest",
+    "deepseek-v3": "qwen35u-tools:9b",
+    "llama4":      "qwen35u-tools:9b",
+    "nova-lite":   "qwen35u-tools:9b",
+    "nova-pro":    "qwen3-14b-32k:latest",
+}
+
 DEFAULT = "sonnet"
 
 
@@ -33,6 +45,7 @@ def get_llm(task: str = DEFAULT, temperature: float = 0.0):
     Provider selection order:
       LLM_PROVIDER=openai  → OpenAI (gpt-4o / gpt-4o-mini)
       LLM_PROVIDER=bedrock → Amazon Bedrock
+      LLM_PROVIDER=ollama  → Ollama local (gratis, vía endpoint OpenAI-compatible)
       LLM_PROVIDER=auto    → OpenAI if OPENAI_API_KEY present, else Bedrock
 
     task: "sonnet" | "haiku" | "deepseek-r1" | "deepseek-v3" | "llama4" | "nova-lite" | "nova-pro"
@@ -40,6 +53,20 @@ def get_llm(task: str = DEFAULT, temperature: float = 0.0):
     openai_key = os.getenv("OPENAI_API_KEY")
     bedrock_key = os.getenv("AWS_BEARER_TOKEN_BEDROCK") or os.getenv("BEDROCK_API_KEY")
     provider = os.getenv("LLM_PROVIDER", "auto")
+
+    # Ollama local — no toca la lógica OpenAI/Bedrock, solo agrega opción gratis.
+    if provider == "ollama":
+        from langchain_openai import ChatOpenAI
+        model_name = MODELS_OLLAMA.get(task, MODELS_OLLAMA[DEFAULT])
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        print(f"[LLM] Ollama → {model_name} @ {base_url}")
+        return ChatOpenAI(
+            model=model_name,
+            api_key="ollama",  # Ollama ignora la key pero langchain la exige
+            base_url=base_url,
+            temperature=temperature,
+            max_tokens=2048,
+        )
 
     use_openai = (
         provider == "openai"
