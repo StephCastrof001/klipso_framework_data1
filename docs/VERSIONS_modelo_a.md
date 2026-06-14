@@ -43,8 +43,43 @@ El cuello es el LLM: A-v1 y A-v2 llaman al LLM en 3 agentes → timeout en datas
 **Sub-experimento E-LLM-FINAL:** ¿mover el LLM a solo el Agente 4 (como declara el
 diseño "IA solo al final") arregla el timeout sin perder calidad?
 - Hipótesis: 1 llamada LLM vs 3 → 3x más rápido, sin timeout, mismo eval
-- Métrica: 3/3 datasets status ok, tiempo < 300s, eval.json completo
-- Estado: PENDIENTE de aplicar
+- Variable: flag `LLM_INTERMEDIATE=false` (recon/eda/hypothesis sin LLM)
+- Métrica: status ok, tiempo < 300s, eval.json completo
+- Estado: ✅ APLICADO Y MEDIDO (2026-06-14)
+
+**Resultado E-LLM-FINAL — el árbitro (bench_runner) habló:**
+
+Esta tabla mide SOLO lo que el experimento controla: velocidad y que el pipeline
+cierre sin timeout. La comparación vs answer key es OTRA cosa (ver Adjudicación).
+
+| Dataset | con-LLM (default) | sin-LLM-intermedio (flag) | corrió completo |
+|---|---|---|---|
+| Titanic | 🔴 timeout 600s | ✅ **218s exit 0** | ✅ eval.json + brief |
+| Spotify | 🔴 timeout | (midiendo) | (pendiente) |
+
+**Veredicto del experimento E-LLM-FINAL (solo velocidad/robustez):** confirmado.
+600s timeout → 218s éxito, 2.75x más rápido, sin perder el eval. Cumple el diseño
+"IA solo al final" + más barato (1 llamada vs 3).
+DECISIÓN si Spotify confirma: `LLM_INTERMEDIATE=false` pasa a default.
+
+> ⚠️ ESTO NO DICE que nuestro análisis sea CORRECTO — solo que corre rápido y sin error.
+
+---
+
+## Adjudicación: nosotros vs el answer key (PENDIENTE de revisar)
+
+El answer key es un análisis HUMANO publicado — puede tener errores. Cuando nuestro
+pipeline difiere del answer key, NO asumimos que nosotros acertamos ni que ellos sí.
+Hay que adjudicar: revisar el cálculo de ambos y decidir quién está bien.
+
+| Dataset | Nuestro hallazgo | Answer key (ref) | ¿Coincide? | Adjudicación |
+|---|---|---|---|---|
+| Titanic | Pclass↔Fare r=-0.549; skew Fare=4.79 | "clase importa; 1ra paga más" | aparente sí | pendiente revisar nº exacto |
+| Spotify | (midiendo) | "danceability/speechiness corr NEG con streams" | ? | pendiente |
+
+**Regla:** una coincidencia aparente NO cierra el caso. Adjudicar = comparar el número
+real de ambos lados. Si difieren, investigar el cálculo (¿nosotros mal? ¿ellos mal?).
+Esto se revisa luego — acá queda registrado como deuda de verificación.
 
 ---
 
