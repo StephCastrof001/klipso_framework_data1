@@ -1,0 +1,138 @@
+{
+  "rows": 150,
+  "n_cols": 5,
+  "column_types": {
+    "numeric": [
+      "sepal_length",
+      "sepal_width",
+      "petal_length",
+      "petal_width"
+    ],
+    "categorical": [
+      "species"
+    ],
+    "datetime": []
+  },
+  "top_correlations": [
+    {
+      "a": "petal_length",
+      "b": "petal_width",
+      "r": 0.963,
+      "p": 0.0,
+      "significant": true,
+      "n": 150
+    },
+    {
+      "a": "sepal_length",
+      "b": "petal_length",
+      "r": 0.872,
+      "p": 0.0,
+      "significant": true,
+      "n": 150
+    },
+    {
+      "a": "sepal_length",
+      "b": "petal_width",
+      "r": 0.818,
+      "p": 0.0,
+      "significant": true,
+      "n": 150
+    },
+    {
+      "a": "sepal_width",
+      "b": "petal_length",
+      "r": -0.428,
+      "p": 0.0,
+      "significant": true,
+      "n": 150
+    },
+    {
+      "a": "sepal_width",
+      "b": "petal_width",
+      "r": -0.366,
+      "p": 0.0,
+      "significant": true,
+      "n": 150
+    },
+    {
+      "a": "sepal_length",
+      "b": "sepal_width",
+      "r": -0.118,
+      "p": 0.1519,
+      "significant": false,
+      "n": 150
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis": "H1",
+      "statement": "petal_length se relaciona con petal_width",
+      "pearson_r": 0.963,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.938,
+      "spearman_p": 0.0,
+      "n": 150,
+      "verdict": "CONFIRMADA"
+    },
+    {
+      "hypothesis": "H2",
+      "statement": "sepal_length se relaciona con petal_length",
+      "pearson_r": 0.872,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.882,
+      "spearman_p": 0.0,
+      "n": 150,
+      "verdict": "CONFIRMADA"
+    },
+    {
+      "hypothesis": "H3",
+      "statement": "sepal_length se relaciona con petal_width",
+      "pearson_r": 0.818,
+      "pearson_p": 0.0,
+      "spearman_rho": 0.834,
+      "spearman_p": 0.0,
+      "n": 150,
+      "verdict": "CONFIRMADA"
+    },
+    {
+      "hypothesis": "H4",
+      "statement": "sepal_width se relaciona con petal_length",
+      "pearson_r": -0.428,
+      "pearson_p": 0.0,
+      "spearman_rho": -0.31,
+      "spearman_p": 0.0001,
+      "n": 150,
+      "verdict": "CONFIRMADA"
+    },
+    {
+      "hypothesis": "H5",
+      "statement": "sepal_width se relaciona con petal_width",
+      "pearson_r": -0.366,
+      "pearson_p": 0.0,
+      "spearman_rho": -0.289,
+      "spearman_p": 0.0003,
+      "n": 150,
+      "verdict": "CONFIRMADA"
+    },
+    {
+      "hypothesis": "H6",
+      "statement": "sepal_length se relaciona con sepal_width",
+      "pearson_r": -0.118,
+      "pearson_p": 0.1519,
+      "spearman_rho": -0.167,
+      "spearman_p": 0.0414,
+      "n": 150,
+      "verdict": "RECHAZADA"
+    }
+  ],
+  "skew_warnings": [],
+  "n_confirmed": 5,
+  "n_tested": 6,
+  "null_counts": {
+    "sepal_length": 0,
+    "sepal_width": 0,
+    "petal_length": 0,
+    "petal_width": 0,
+    "species": 0
+  }
+}

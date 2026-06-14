@@ -1,0 +1,171 @@
+/home/ubuntu/.local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (2.6.3) or chardet (7.4.3)/charset_normalizer (3.4.4) doesn't match a supported version!
+  warnings.warn(
+============================================================
+KLIPSO MODEL A PIPELINE — START
+============================================================
+
+[1/4] DATA RECON
+----------------------------------------
+=== DATA RECON REPORT ===
+
+--- main ---
+Shape: (891, 12)
+Column types:
+  PassengerId: int64
+  Survived: int64
+  Pclass: int64
+  Name: str
+  Sex: str
+  Age: float64  ← 19.87% nulls
+  SibSp: int64
+  Parch: int64
+  Ticket: str
+  Fare: float64
+  Cabin: str  ← 77.1% nulls
+  Embarked: str  ← 0.22% nulls
+
+[LLM] Ollama → qwen35u-tools:9b @ http://localhost:11434/v1
+
+=== INTERPRETACIÓN EDITORIAL (LLM) ===
+1. **Lista de problemas críticos que bloquean el análisis (máx 5):**
+   *   Alta tasa de nulos en la columna `Cabin` (77.1%).
+   *   Tasa de nulos considerable en la columna `Age` (19.87%).
+   *   Nulos residuales en la columna `Embarked` (0.22%).
+   *   Posible correlación de nulos entre `Cabin` y `Age`.
+   *   Formato no estandarizado en la columna `Name`.
+
+2. **Impacto de negocio de cada problema (1 línea por problema):**
+   *   Reduce la capacidad de segmentar a la audiencia por ubicación o jerarquía social.
+   *   Afecta la precisión de los modelos predictivos basados en variables demográficas clave.
+   *   Introduce ruido mínimo pero potencial en la variable de origen del análisis.
+   *   Reduce la potencia estadística al intentar combinar estas variables en un mismo modelo.
+   *   Pierde información valiosa sobre títulos o grupos demográficos si no se extrae.
+
+3. **Recomendación sobre qué limpiar primero:**
+   *   Priorizar la imputación de la columna `Age` debido a su mayor valor predictivo y menor volumen de nulos comparado con `Cabin`.
+Agent 1 done in 187.1s
+
+[2/4] EDA
+----------------------------------------
+Dataset: 891 rows x 12 cols
+=== GENERIC DATA PROFILE ===
+
+Shape: 891 rows x 12 cols
+Numeric: ['PassengerId', 'Pclass', 'Age', 'SibSp', 'Parch', 'Fare']
+Categorical: ['Survived', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked']
+Datetime: []
+
+--- Columns with nulls ---
+  Cabin: 77.1%
+  Age: 19.87%
+  Embarked: 0.22%
+
+--- Numeric summary (median + skew) ---
+              median     mean      std   skew
+PassengerId  446.000  446.000  257.354  0.000
+Pclass         3.000    2.309    0.836 -0.631
+Age           28.000   29.699   14.526  0.389
+SibSp          0.000    0.523    1.103  3.695
+Parch          0.000    0.382    0.806  2.749
+Fare          14.454   32.204   49.693  4.787
+
+--- Top correlations (Pearson, p-value) ---
+  Pclass ↔ Fare: r=-0.549 p=0.0000 [✓ sig] n=891
+  SibSp ↔ Parch: r=+0.415 p=0.0000 [✓ sig] n=891
+  Pclass ↔ Age: r=-0.369 p=0.0000 [✓ sig] n=714
+  Age ↔ SibSp: r=-0.308 p=0.0000 [✓ sig] n=714
+  Parch ↔ Fare: r=+0.216 p=0.0000 [✓ sig] n=891
+  Age ↔ Parch: r=-0.189 p=0.0000 [✓ sig] n=714
+  SibSp ↔ Fare: r=+0.160 p=0.0000 [✓ sig] n=891
+  Age ↔ Fare: r=+0.096 p=0.0102 [✓ sig] n=714
+
+--- Categorical columns ---
+  Survived: 2 unique, top=['0', '1']
+  Name: 891 unique, top=['Braund, Mr. Owen Harris', 'Cumings, Mrs. John Bradley (Florence Briggs Thayer)', 'Heikkinen, Miss. Laina']
+  Sex: 2 unique, top=['male', 'female']
+  Ticket: 681 unique, top=['347082', '1601', 'CA. 2343']
+  Cabin: 147 unique, top=['G6', 'C23 C25 C27', 'B96 B98']
+  Embarked: 3 unique, top=['S', 'C', 'Q']
+[LLM] Ollama → qwen35u-tools:9b @ http://localhost:11434/v1
+
+=== INTERPRETACIÓN (LLM) ===
+Como Analista de Datos Senior, he revisado el perfil estadístico proporcionado. Basado en los datos (que corresponden claramente al dataset clásico de **Titanic**), aquí está mi análisis técnico:
+
+### 1. Las 3 correlaciones más fuertes y significativas
+
+1.  **`Pclass` ↔ `Fare` (r = -0.549, p < 0.001)**
+    *   **Implicación:** Es la correlación más fuerte del dataset. Indica una relación inversa clara: a mayor clase social (menor número, 1 es primera clase), mayor es el pasaje pagado. Esto confirma la segmentación económica del viaje. Es una relación casi determinista en este contexto.
+2.  **`SibSp` ↔ `Parch` (r = +0.415, p < 0.001)**
+    *   **Implicación:** Muestra una fuerte asociación entre los hermanos/cónyuges (`SibSp`) y los padres/hijos (`Parch`). Sugiere que los pasajeros que viajaban en grupos familiares grandes tienden a tener ambos tipos de acompañantes, o que los grupos familiares se agrupan en la misma fila de datos. Es útil para crear una variable compuesta de "Tamaño de Familia".
+3.  **`Pclass` ↔ `Age` (r = -0.369, p < 0.001)**
+    *   **Implicación:** Existe una tendencia moderada donde los pasajeros de clase más alta tienden a ser ligeramente más jóvenes (o tienen una distribución de edad diferente) en comparación con las clases inferiores. Esto podría reflejar la composición demográfica de los pasajeros de primera clase (más profesionales/jóvenes) vs. tercera clase (más trabajadores mayores).
+
+### 2. Distribuciones sesgadas (Skew alto) y uso de Mediana
+
+Sí, hay columnas con sesgo alto donde la **media engañaría** y la **mediana es preferible**:
+
+*   **`Fare` (Sesgo: 4.787):** Es la más extrema. La media (32.2) es casi el doble de la mediana (14.45). Esto se debe a valores atípicos (outliers) de pasajeros de primera clase con tarifas muy altas que inflan la media. **Recomendación:** Usar `Fare` transformada (log) o la mediana para análisis de distribución.
+*   **`SibSp` (Sesgo: 3.695) y `Parch` (Sesgo: 2.749):** Ambas tienen una distribución muy asimétrica a la derecha. La mayoría de los pasajeros viajaban solos (Mediana = 0), pero algunos grupos grandes elevan la media. **Recomendación:** Usar la mediana (0) o crear una variable binaria "Viaja solo" vs "Con familia".
+*   **`Age` (Sesgo: 0.389):** El sesgo es bajo, pero la media (29.7) es ligeramente superior a la mediana (28). **Recomendación:** La mediana es más robusta para imputar valores faltantes en `Age`.
+
+### 3. Calidad de datos problemática (Nulls altos)
+
+*   **`Cabin` (77.1% de nulos):** Es el problema más crítico. Casi 8 de cada 10 pasajeros no tienen registro de cabina. Esto reduce drásticamente su utilidad como variable predictiva directa.
+    *   *Acción:* Considerar imputación avanzada (ej. por clase o embarque) o crear una variable binaria "Cabin_Unknown".
+*   **`Age` (19.87% de nulos):** Un porcentaje significativo.
+    *   *Acción:* Imputar con la mediana de `Age` por `Pclass` (ya que la edad promedio varía por clase).
+*   **`Embarked` (0.22% de nulos):** Calidad excelente.
+    *   *Acción:* Imputar con el modo o dejar como nulo si el modelo lo soporta.
+
+### 4. Variable más informativa del dataset
+
+Basado en el perfil numérico y las correlaciones:
+
+*   **`Pclass` (Clase de Pasaje):** Es la variable numérica más informativa. Aparece en las 3 correlaciones más fuertes y tiene el mayor impacto en la segmentación del viaje. En el contexto de supervivencia (variable objetivo `Survived`), `Pclass` es uno de los predictores más fuertes junto con `Sex`.
+*   **`Sex` (Categorial):** Aunque no aparece en la tabla de correlaciones numéricas, en este dominio `Sex` suele tener una correlación muy alta con `Survived` (prioridad de rescate a mujeres).
+*   **Conclusión:** Si debo elegir una variable **numérica** para modelado predictivo, **`Pclass`** es la más informativa. Si considero todo el dataset, **`Sex`** es igual o más importante que `Pclass` para predecir `Survived`.
+
+**Resumen de Acción:**
+El dataset tiene buena estructura pero requiere limpieza en `Cabin` e `Age`. Para modelado, priorizar `Pclass`, `Sex`, `Fare` (transformada) y `Embarked`.
+Agent 2 done in 141.6s
+
+[3/4] HYPOTHESIS TESTING
+----------------------------------------
+=== HYPOTHESIS TESTING REPORT (agnostic) ===
+
+--- H1: Pclass se relaciona con Fare ---
+  Verdict: CONFIRMADA
+  Pearson r=-0.549 (p=0.0), Spearman rho=-0.688 (p=0.0), n=891
+
+--- H2: SibSp se relaciona con Parch ---
+  Verdict: CONFIRMADA
+  Pearson r=0.415 (p=0.0), Spearman rho=0.45 (p=0.0), n=891
+
+--- H3: Pclass se relaciona con Age ---
+  Verdict: CONFIRMADA
+  Pearson r=-0.369 (p=0.0), Spearman rho=-0.362 (p=0.0), n=714
+
+--- H4: Age se relaciona con SibSp ---
+  Verdict: CONFIRMADA
+  Pearson r=-0.308 (p=0.0), Spearman rho=-0.182 (p=0.0), n=714
+
+--- H5: Parch se relaciona con Fare ---
+  Verdict: DÉBIL
+  Pearson r=0.216 (p=0.0), Spearman rho=0.41 (p=0.0), n=891
+
+--- H6: Age se relaciona con Parch ---
+  Verdict: DÉBIL
+  Pearson r=-0.189 (p=0.0), Spearman rho=-0.254 (p=0.0), n=714
+
+--- H7: SibSp se relaciona con Fare ---
+  Verdict: DÉBIL
+  Pearson r=0.16 (p=0.0), Spearman rho=0.447 (p=0.0), n=891
+
+--- H8: Age se relaciona con Fare ---
+  Verdict: DÉBIL
+  Pearson r=0.096 (p=0.0102), Spearman rho=0.135 (p=0.0003), n=714
+
+--- SKEW WARNINGS (media vs mediana) ---
+  SibSp: skew=3.7, mean=0.52 vs median=0.0 — media inflada por outliers — usar mediana como KPI
+  Parch: skew=2.75, mean=0.38 vs median=0.0 — media inflada por outliers — usar mediana como KPI
+  Fare: skew=4.79, mean=32.2 vs median=14.45 — media inflada por outliers — usar mediana como KPI

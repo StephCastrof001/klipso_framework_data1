@@ -1,0 +1,16 @@
+## Brief: Hallazgos Clave del Dataset
+
+### Hallazgos Accionables
+1.  **Validar el origen de los datos antes de modelar:** Si el objetivo es analizar un catálogo musical, pero las variables miden características botánicas (ej. `sepal_length` en cm), el 80% del tiempo de análisis se desperdicia. **Verificable:** Si la correlación entre variables numéricas supera 0.9 (como en este caso con los pétalos), pero el contexto de negocio es diferente (ej. música), la utilidad comercial es baja hasta que se mapeen las columnas a atributos reales (ej. duración, frecuencia).
+2.  **Eliminar variables redundantes para ahorrar recursos:** Dos de las cuatro métricas principales (`petal_length` y `petal_width`) se mueven casi en perfecta sincronía (correlación 0.963). **Verificable:** Si usas ambas en un modelo de predicción, el rendimiento no mejorará significativamente, pero el costo computacional y el riesgo de error aumentarán. Elimina una de las dos.
+3.  **Identificar el único predictor clave:** Para clasificar o segmentar los datos, la longitud del pétalo (`petal_length`) es la métrica más fiable. **Verificable:** Si la variable objetivo es "tipo de categoría", esta variable tiene el mayor poder de discriminación (separación clara entre grupos) en comparación con las otras tres.
+4.  **Aumentar el volumen de datos para confiar en las tendencias:** Con 150 registros, las conclusiones son frágiles. **Verificable:** Si el tamaño de la muestra es menor a 200 registros, cualquier tendencia observada (ej. picos de popularidad o estacionalidad) podría ser un artefacto estadístico y no una realidad de mercado.
+5.  **Usar la mediana en lugar de la media para reglas de negocio:** Aunque la distribución es casi normal, la media puede verse afectada por valores atípicos. **Verificable:** Si la diferencia entre la media y la mediana supera el 5% (como ocurre en `sepal_width`), prioriza la mediana para definir umbrales de corte o KPIs de rendimiento.
+
+### Señales de Alerta
+- **Inconsistencia de Dominio Crítica:** El dataset parece botánico (Iris) pero se usa para metadatos musicales. Esto genera métricas físicas (cm) que no tienen sentido en audio (segundos, Hz), lo que puede llevar a decisiones de inversión basadas en datos irrelevantes.
+- **Muestra Insuficiente para Segmentación:** 150 registros son suficientes para probar una hipótesis simple, pero insuficientes para segmentar audiencias o predecir ventas con confianza. Un 10% de error en la predicción es probable.
+- **Redundancia de Información:** La relación casi perfecta entre `petal_length` y `petal_width` (r=0.963) significa que estás midiendo esencialmente la misma cosa dos veces, lo que puede confundir a los algoritmos de aprendizaje automático.
+
+### Recomendación
+Priorice la **limpieza semántica del origen de los datos** antes de cualquier transformación numérica: confirme si las columnas botánicas pueden mapearse a atributos musicales reales (ej. `sepal_length` → duración del track) o si deben reemplazarse por metadatos estándar. Una vez validado el contexto, reduzca el conjunto de características eliminando una de las variables de pétalos para evitar redundancia, y aumente la muestra de datos a al menos 500 registros para garantizar que las tendencias detectadas sean estables y aplicables a decisiones de inversión.
