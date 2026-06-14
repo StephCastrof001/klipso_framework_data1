@@ -32,7 +32,7 @@ def detect_column_types(df: pd.DataFrame) -> dict:
                 numeric.append(col)
         else:
             # Intentar coercion para strings
-            limpio = s.str.replace('$', '', regex=False).str.replace(',', '', regex=False).str.replace(' ', '', regex=False)
+            limpio = s.astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False).str.replace(' ', '', regex=False)
             coerced_temp = pd.to_numeric(limpio, errors='coerce')
             ratio = coerced_temp.notna().sum() / s.notna().sum() if s.notna().sum() > 0 else 0
             if ratio >= 0.99 and coerced_temp.nunique(dropna=True) > 2:
