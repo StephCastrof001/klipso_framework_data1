@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 from langchain_core.messages import HumanMessage
 
-from klipso.llm.provider import get_llm
+from klipso.llm.provider import get_llm, llm_intermediate_enabled
 from klipso.utils.profiler import build_profile, profile_to_text
 
 
@@ -47,10 +47,13 @@ def run_eda(
     stats_text = profile_to_text(profile)
     print(stats_text)
 
-    if llm is None:
-        llm = get_llm()
-
-    prompt = f"""Eres analista de datos senior. Analiza este perfil estadístico
+    # E-LLM-FINAL: si LLM_INTERMEDIATE=false, queda determinístico (sin LLM).
+    if not llm_intermediate_enabled():
+        llm_text = stats_text  # el perfil determinístico ES la salida
+    else:
+        if llm is None:
+            llm = get_llm()
+        prompt = f"""Eres analista de datos senior. Analiza este perfil estadístico
 de un dataset (puede ser de cualquier dominio) y responde en español:
 1. ¿Cuáles son las 3 correlaciones más fuertes y significativas? ¿Qué implican?
 2. ¿Hay distribuciones sesgadas (skew alto) donde la media engañaría? ¿Usar mediana?
@@ -60,9 +63,9 @@ de un dataset (puede ser de cualquier dominio) y responde en español:
 PERFIL ESTADÍSTICO:
 {stats_text}
 """
-    response = llm.invoke([HumanMessage(content=prompt)])
-    print("\n=== INTERPRETACIÓN (LLM) ===")
-    print(response.content)
+        llm_text = llm.invoke([HumanMessage(content=prompt)]).content
+        print("\n=== INTERPRETACIÓN (LLM) ===")
+        print(llm_text)
 
     # Back-compat: keys que Model B (HITL) espera de A-v1. None si no aplican.
     spotify_playlist_corr = None
@@ -75,7 +78,7 @@ PERFIL ESTADÍSTICO:
         "n_cols": df_merged.shape[1],
         "column_types": profile["types"],
         "top_correlations": profile["top_correlations"],
-        "llm_interpretation": response.content,
+        "llm_interpretation": llm_text,
         "df_merged": df_merged,
         # --- back-compat A-v1 / Model B ---
         "merge_rows": len(df_merged),

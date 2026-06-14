@@ -5,7 +5,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 import pandas as pd
 from langchain_core.messages import HumanMessage
 
-from klipso.llm.provider import get_llm
+from klipso.llm.provider import get_llm, llm_intermediate_enabled
 
 
 def _audit_df(df: pd.DataFrame, name: str) -> dict:
@@ -80,10 +80,13 @@ def run_recon(
     recon_text = _build_recon_text(spotify_audit, competition_audit, join_key)
     print(recon_text)
 
-    if llm is None:
-        llm = get_llm()
-
-    prompt = f"""You are a data analyst for a music editorial team.
+    # E-LLM-FINAL: si LLM_INTERMEDIATE=false, queda determinístico (sin LLM).
+    if not llm_intermediate_enabled():
+        llm_text = recon_text  # el reporte determinístico ES la salida
+    else:
+        if llm is None:
+            llm = get_llm()
+        prompt = f"""You are a data analyst for a music editorial team.
 Review this data quality report and respond in Spanish with:
 1. List of critical problems blocking analysis (max 5 bullets)
 2. Business impact of each problem (1 line per problem)
@@ -92,9 +95,9 @@ Review this data quality report and respond in Spanish with:
 TECHNICAL REPORT:
 {recon_text}
 """
-    response = llm.invoke([HumanMessage(content=prompt)])
-    print("\n=== INTERPRETACIÓN EDITORIAL (LLM) ===")
-    print(response.content)
+        llm_text = llm.invoke([HumanMessage(content=prompt)]).content
+        print("\n=== INTERPRETACIÓN EDITORIAL (LLM) ===")
+        print(llm_text)
 
     # JOIN warning solo aplica si hay clave de join real entre 2 datasets.
     join_warning = False
@@ -114,5 +117,5 @@ TECHNICAL REPORT:
         "null_counts": spotify_audit["null_counts"],
         "join_warning": join_warning,
         "join_detail": join_detail,
-        "llm_summary": response.content,
+        "llm_summary": llm_text,
     }

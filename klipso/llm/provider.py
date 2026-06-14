@@ -38,6 +38,13 @@ MODELS_OLLAMA = {
 DEFAULT = "sonnet"
 
 
+def llm_intermediate_enabled() -> bool:
+    """Experimento E-LLM-FINAL: si LLM_INTERMEDIATE=false, los agentes 1-3
+    quedan determinísticos puros (sin llamada LLM). business_tx (Agente 4)
+    siempre usa LLM. Default true = comportamiento A-v2 original."""
+    return os.getenv("LLM_INTERMEDIATE", "true").strip().lower() not in ("false", "0", "no")
+
+
 def get_llm(task: str = DEFAULT, temperature: float = 0.0):
     """
     Returns a LangChain chat model based on .env configuration.

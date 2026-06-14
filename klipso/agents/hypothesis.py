@@ -12,7 +12,7 @@ import pandas as pd
 from scipy import stats
 from langchain_core.messages import HumanMessage
 
-from klipso.llm.provider import get_llm
+from klipso.llm.provider import get_llm, llm_intermediate_enabled
 from klipso.utils.profiler import build_profile
 
 
@@ -109,10 +109,13 @@ def run_hypothesis(
     hypothesis_text = _build_hypothesis_text(hypotheses, skew_warnings)
     print(hypothesis_text)
 
-    if llm is None:
-        llm = get_llm()
-
-    prompt = f"""Eres analista de datos senior. Estas hipótesis se auto-generaron
+    # E-LLM-FINAL: si LLM_INTERMEDIATE=false, queda determinístico (sin LLM).
+    if not llm_intermediate_enabled():
+        llm_text = hypothesis_text  # el reporte determinístico ES la salida
+    else:
+        if llm is None:
+            llm = get_llm()
+        prompt = f"""Eres analista de datos senior. Estas hipótesis se auto-generaron
 de las correlaciones más fuertes del dataset y se probaron con significancia.
 Responde en español:
 1. ¿Qué hipótesis tiene la evidencia más fuerte? ¿Qué implica?
@@ -123,14 +126,14 @@ Responde en español:
 RESULTADOS:
 {hypothesis_text}
 """
-    response = llm.invoke([HumanMessage(content=prompt)])
-    print("\n=== INTERPRETACIÓN (LLM) ===")
-    print(response.content)
+        llm_text = llm.invoke([HumanMessage(content=prompt)]).content
+        print("\n=== INTERPRETACIÓN (LLM) ===")
+        print(llm_text)
 
     return {
         "hypotheses": hypotheses,
         "skew_warnings": skew_warnings,
         "n_confirmed": sum(1 for h in hypotheses if h["verdict"] == "CONFIRMADA"),
         "n_tested": len(hypotheses),
-        "llm_interpretation": response.content,
+        "llm_interpretation": llm_text,
     }
