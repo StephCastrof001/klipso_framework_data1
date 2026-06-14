@@ -3,23 +3,33 @@ import pandas as pd
 
 def fix_types(df_spotify: pd.DataFrame, df_competition: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Fixes dirty types detected in the raw CSVs:
-    - streams: object with commas → int
-    - in_deezer_playlists, in_shazam_charts: object → int
-    - track_id: normalized to Int64 in both tables for JOIN
+    Fixes dirty types generically across datasets:
+    - Iterates over all columns of type 'object' or 'string'.
+    - Removes commas and coerces to numeric.
+    - If >90% of the column becomes valid numeric, it applies the coercion.
+    - Also explicitly forces 'track_id' to Int64 if it exists for JOINs.
     """
     df_s = df_spotify.copy()
     df_c = df_competition.copy()
 
-    df_s["streams"] = pd.to_numeric(
-        df_s["streams"].astype(str).str.replace(",", ""), errors="coerce"
-    )
-    df_c["in_deezer_playlists"] = pd.to_numeric(df_c["in_deezer_playlists"], errors="coerce")
-    df_c["in_shazam_charts"] = pd.to_numeric(df_c["in_shazam_charts"], errors="coerce")
-    df_c["track_id"] = pd.to_numeric(df_c["track_id"], errors="coerce").astype("Int64")
-    df_s["track_id"] = df_s["track_id"].astype("Int64")
+    def _smart_coerce(df: pd.DataFrame) -> pd.DataFrame:
+        for col in df.columns:
+            if df[col].dtype == "object" or pd.api.types.is_string_dtype(df[col]):
+                # Try replacing commas and converting to numeric
+                coerced = pd.to_numeric(df[col].astype(str).str.replace(",", ""), errors="coerce")
+                # If >90% of the values are valid numbers (excluding original NaNs if possible, but simpler: just >90% of total)
+                valid_ratio = coerced.notnull().mean()
+                if valid_ratio > 0.90:
+                    df[col] = coerced
+        if "track_id" in df.columns:
+            df["track_id"] = pd.to_numeric(df["track_id"], errors="coerce").astype("Int64")
+        return df
+
+    df_s = _smart_coerce(df_s)
+    df_c = _smart_coerce(df_c)
 
     return df_s, df_c
+
 
 
 def merge_tables(df_spotify: pd.DataFrame, df_competition: pd.DataFrame) -> pd.DataFrame:
