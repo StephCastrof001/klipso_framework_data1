@@ -17,8 +17,9 @@ def detect_column_types(df: pd.DataFrame) -> dict:
     - numeric: dtype numérico con >2 valores únicos
     - categorical: object/category, o numérico con baja cardinalidad
     - datetime: dtype datetime o columnas parseables
+    - coerced: columnas no-numeric que se pueden convertir a numeric con >=99% ratio
     """
-    numeric, categorical, datetime_cols = [], [], []
+    numeric, categorical, datetime_cols, coerced = [], [], [], []
     for col in df.columns:
         s = df[col]
         if pd.api.types.is_datetime64_any_dtype(s):
@@ -30,8 +31,17 @@ def detect_column_types(df: pd.DataFrame) -> dict:
             else:
                 numeric.append(col)
         else:
-            categorical.append(col)
-    return {"numeric": numeric, "categorical": categorical, "datetime": datetime_cols}
+            # Intentar coercion para strings
+            limpio = s.str.replace('$', '', regex=False).str.replace(',', '', regex=False).str.replace(' ', '', regex=False)
+            coerced_temp = pd.to_numeric(limpio, errors='coerce')
+            ratio = coerced_temp.notna().sum() / s.notna().sum() if s.notna().sum() > 0 else 0
+            if ratio >= 0.99 and coerced_temp.nunique(dropna=True) > 2:
+                numeric.append(col)
+                coerced.append(col)
+                df[col] = coerced_temp
+            else:
+                categorical.append(col)
+    return {"numeric": numeric, "categorical": categorical, "datetime": datetime_cols, "coerced": coerced}
 
 
 def numeric_summary(df: pd.DataFrame, numeric_cols: list[str]) -> pd.DataFrame:
