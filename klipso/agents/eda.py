@@ -1,58 +1,26 @@
-"""Agent 2 — EDA: descriptive statistics, correlations, optional profiling reports."""
+"""Agent 2 — EDA: descriptive statistics + correlations, dataset-agnostic."""
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from langchain_core.messages import HumanMessage
 
 from klipso.llm.provider import get_llm
-from klipso.utils.data_cleaning import load_and_fix
+from klipso.utils.profiler import build_profile, profile_to_text
 
 
-def _build_stats_text(df: pd.DataFrame) -> str:
-    lines = ["=== EDA STATS REPORT ===\n"]
-    lines.append(f"Rows after inner merge: {len(df)}")
-    lines.append(f"Columns: {list(df.columns)}\n")
-
-    key_cols = [c for c in [
-        "streams", "in_spotify_playlists", "in_apple_playlists",
-        "in_deezer_playlists", "in_spotify_charts", "in_apple_charts",
-        "in_deezer_charts", "in_shazam_charts", "artist_count",
-    ] if c in df.columns]
-
-    lines.append("--- Descriptive statistics ---")
-    lines.append(df[key_cols].describe().round(0).to_string())
-    lines.append("")
-
-    lines.append("--- Pearson correlation with streams ---")
-    for col in key_cols:
-        if col != "streams":
-            mask = df[["streams", col]].dropna()
-            if len(mask) > 10:
-                r = mask["streams"].corr(mask[col])
-                lines.append(f"  streams ↔ {col}: r={r:.3f}")
-
-    lines.append("\n--- Top 5 genres by median streams ---")
-    lines.append(
-        df.groupby("main_music_genre")["streams"]
-        .agg(count="count", median_streams="median")
-        .sort_values("median_streams", ascending=False)
-        .head(5)
-        .to_string()
-    )
-
-    lines.append("\n--- Top 5 countries by median streams ---")
-    lines.append(
-        df.groupby("main_country")["streams"]
-        .agg(count="count", median_streams="median")
-        .sort_values("median_streams", ascending=False)
-        .head(5)
-        .to_string()
-    )
-
-    return "\n".join(lines)
+def _load_df(spotify_path: str, competition_path: str) -> pd.DataFrame:
+    """Carga el dataset. Single-CSV si los paths coinciden; si no, intenta merge."""
+    if spotify_path == competition_path:
+        return pd.read_csv(spotify_path)
+    # Dos datasets distintos: intentar merge por clave común; si falla, usar el main.
+    try:
+        from klipso.utils.data_cleaning import load_and_fix
+        _, _, df = load_and_fix(spotify_path, competition_path)
+        return df
+    except Exception:
+        return pd.read_csv(spotify_path)
 
 
 def run_eda(
@@ -63,76 +31,44 @@ def run_eda(
     df_merged: pd.DataFrame = None,
 ) -> dict:
     """
-    Runs exploratory data analysis on the merged dataset.
-
-    Args:
-        spotify_path: Path to main platform CSV.
-        competition_path: Path to cross-platform CSV.
-        outputs_dir: Directory for optional HTML profile reports.
-        llm: Optional pre-built LangChain LLM.
-        df_merged: Pre-merged DataFrame (skips load+merge if provided).
+    EDA agnóstico: perfila cualquier DataFrame (tipos, stats, correlaciones).
 
     Returns:
-        dict with keys: merge_rows, spotify_playlist_corr, profile_path,
-                        sweetviz_path, llm_interpretation, df_merged
+        dict con: rows, profile, top_correlations, llm_interpretation, df_merged
     """
     Path(outputs_dir).mkdir(exist_ok=True)
 
     if df_merged is None:
-        _, _, df_merged = load_and_fix(spotify_path, competition_path)
+        df_merged = _load_df(spotify_path, competition_path)
 
-    print(f"Merge inner: {len(df_merged)} tracks with cross-platform data")
+    print(f"Dataset: {len(df_merged)} rows x {df_merged.shape[1]} cols")
 
-    stats_text = _build_stats_text(df_merged)
+    profile = build_profile(df_merged)
+    stats_text = profile_to_text(profile)
     print(stats_text)
-
-    profile_path = None
-    try:
-        from ydata_profiling import ProfileReport
-        profile = ProfileReport(df_merged, minimal=True, title="Spotify Editorial EDA")
-        profile_path = str(Path(outputs_dir) / "eda_profile.html")
-        profile.to_file(profile_path)
-        print(f"\nydata-profiling → {profile_path}")
-    except ImportError:
-        print("\nydata-profiling not installed (pip install klipso[profiling])")
-
-    sv_path = None
-    try:
-        import sweetviz as sv
-        sv_cols = [c for c in [
-            "streams", "in_spotify_playlists", "in_apple_playlists",
-            "in_spotify_charts", "in_apple_charts",
-        ] if c in df_merged.columns]
-        report = sv.analyze(df_merged[sv_cols])
-        sv_path = str(Path(outputs_dir) / "eda_sweetviz.html")
-        report.show_html(sv_path, open_browser=False)
-        print(f"sweetviz → {sv_path}")
-    except ImportError:
-        print("sweetviz not installed (pip install klipso[profiling])")
 
     if llm is None:
         llm = get_llm()
 
-    prompt = f"""You are a data analyst for a music editorial team.
-Analyze these results and respond in Spanish:
-1. Which 3 variables have the strongest correlation with streams? What does it mean for the editor?
-2. Which genres and countries lead? Anything surprising?
-3. Are there outliers or distributions the editorial team should be warned about?
-4. Which is the most important variable for predicting success?
+    prompt = f"""Eres analista de datos senior. Analiza este perfil estadístico
+de un dataset (puede ser de cualquier dominio) y responde en español:
+1. ¿Cuáles son las 3 correlaciones más fuertes y significativas? ¿Qué implican?
+2. ¿Hay distribuciones sesgadas (skew alto) donde la media engañaría? ¿Usar mediana?
+3. ¿Qué columnas tienen calidad de datos problemática (nulls altos)?
+4. ¿Cuál parece la variable más informativa del dataset?
 
-STATISTICS:
+PERFIL ESTADÍSTICO:
 {stats_text}
 """
     response = llm.invoke([HumanMessage(content=prompt)])
-    print("\n=== INTERPRETACIÓN EDITORIAL (LLM) ===")
+    print("\n=== INTERPRETACIÓN (LLM) ===")
     print(response.content)
 
     return {
-        "merge_rows": len(df_merged),
-        "spotify_playlist_corr": float(df_merged["streams"].corr(df_merged["in_spotify_playlists"]))
-            if "in_spotify_playlists" in df_merged.columns else None,
-        "profile_path": profile_path,
-        "sweetviz_path": sv_path,
+        "rows": len(df_merged),
+        "n_cols": df_merged.shape[1],
+        "column_types": profile["types"],
+        "top_correlations": profile["top_correlations"],
         "llm_interpretation": response.content,
         "df_merged": df_merged,
     }

@@ -19,9 +19,10 @@ def _audit_df(df: pd.DataFrame, name: str) -> dict:
     }
 
 
-def _build_recon_text(spotify_audit: dict, competition_audit: dict) -> str:
+def _build_recon_text(spotify_audit: dict, competition_audit: dict, join_key: str = None) -> str:
+    audits = [spotify_audit] if spotify_audit is competition_audit else [spotify_audit, competition_audit]
     lines = ["=== DATA RECON REPORT ===\n"]
-    for audit in [spotify_audit, competition_audit]:
+    for audit in audits:
         lines.append(f"--- {audit['name']} ---")
         lines.append(f"Shape: {audit['shape']}")
         lines.append("Column types:")
@@ -31,12 +32,14 @@ def _build_recon_text(spotify_audit: dict, competition_audit: dict) -> str:
             lines.append(f"  {col}: {dtype}{null_flag}")
         lines.append("")
 
-    lines.append("--- JOIN ANALYSIS (track_id) ---")
-    lines.append(f"  spotify  track_id dtype: {spotify_audit['dtypes'].get('track_id', 'N/A')}")
-    lines.append(f"  competition track_id dtype: {competition_audit['dtypes'].get('track_id', 'N/A')}")
-    lines.append(f"  rows spotify: {spotify_audit['shape'][0]}")
-    lines.append(f"  rows competition: {competition_audit['shape'][0]}")
-    lines.append(f"  delta: {abs(spotify_audit['shape'][0] - competition_audit['shape'][0])} tracks without match")
+    # JOIN analysis solo si hay clave de join compartida y dos datasets distintos
+    if join_key and spotify_audit is not competition_audit:
+        lines.append(f"--- JOIN ANALYSIS ({join_key}) ---")
+        lines.append(f"  main  {join_key} dtype: {spotify_audit['dtypes'].get(join_key, 'N/A')}")
+        lines.append(f"  competition {join_key} dtype: {competition_audit['dtypes'].get(join_key, 'N/A')}")
+        lines.append(f"  rows main: {spotify_audit['shape'][0]}")
+        lines.append(f"  rows competition: {competition_audit['shape'][0]}")
+        lines.append(f"  delta: {abs(spotify_audit['shape'][0] - competition_audit['shape'][0])} rows without match")
 
     return "\n".join(lines)
 
@@ -58,12 +61,23 @@ def run_recon(
         dict with keys: schema_issues, null_counts, join_warning, join_detail, llm_summary
     """
     df_spotify = pd.read_csv(spotify_path)
-    df_competition = pd.read_csv(competition_path)
+    # Single-CSV mode: si main == competition, no hay segundo dataset real.
+    single_mode = (spotify_path == competition_path)
+    df_competition = df_spotify if single_mode else pd.read_csv(competition_path)
 
-    spotify_audit = _audit_df(df_spotify, "track_in_spotify")
-    competition_audit = _audit_df(df_competition, "track_in_competition")
+    # Detectar clave de join compartida (track_id u otra col comun) si hay 2 datasets.
+    join_key = None
+    if not single_mode:
+        common = set(df_spotify.columns) & set(df_competition.columns)
+        for cand in ("track_id", "id"):
+            if cand in common:
+                join_key = cand
+                break
 
-    recon_text = _build_recon_text(spotify_audit, competition_audit)
+    spotify_audit = _audit_df(df_spotify, "main")
+    competition_audit = spotify_audit if single_mode else _audit_df(df_competition, "competition")
+
+    recon_text = _build_recon_text(spotify_audit, competition_audit, join_key)
     print(recon_text)
 
     if llm is None:
@@ -82,8 +96,14 @@ TECHNICAL REPORT:
     print("\n=== INTERPRETACIÓN EDITORIAL (LLM) ===")
     print(response.content)
 
-    spotify_id_type = str(df_spotify["track_id"].dtype)
-    competition_id_type = str(df_competition["track_id"].dtype)
+    # JOIN warning solo aplica si hay clave de join real entre 2 datasets.
+    join_warning = False
+    join_detail = "single-dataset (sin join)"
+    if join_key and not single_mode:
+        main_id_type = str(df_spotify[join_key].dtype)
+        comp_id_type = str(df_competition[join_key].dtype)
+        join_warning = main_id_type != comp_id_type
+        join_detail = f"main {join_key}={main_id_type}, competition {join_key}={comp_id_type}"
 
     return {
         "schema_issues": {
@@ -92,7 +112,7 @@ TECHNICAL REPORT:
             if dtype == "object" and col in ["streams", "in_deezer_playlists"]
         },
         "null_counts": spotify_audit["null_counts"],
-        "join_warning": spotify_id_type != competition_id_type,
-        "join_detail": f"spotify track_id={spotify_id_type}, competition track_id={competition_id_type}",
+        "join_warning": join_warning,
+        "join_detail": join_detail,
         "llm_summary": response.content,
     }

@@ -9,43 +9,42 @@ from klipso.llm.provider import get_llm
 
 
 def _build_brief_prompt(recon_summary: str, eda_summary: str, hypothesis_summary: str) -> str:
-    return f"""You are a Senior Data Analyst on Spotify's Editorial Strategy team.
-Transform the statistical analysis into concrete criteria that editors can apply TODAY.
+    return f"""Eres un Analista de Datos Senior. Traduce el análisis estadístico
+de un dataset (de cualquier dominio) en hallazgos concretos y accionables para
+un stakeholder de negocio NO técnico.
 
-RULES:
-- No statistical jargon — explain as if talking to an A&R executive, not a mathematician
-- Each criterion must be verifiable: "if X exceeds Y" or "if the song is in Z platforms"
-- Maximum 5 editorial criteria ranked by impact
-- Include "Warning Signals" section with 2-3 red flags
-- Close with a process recommendation for the team
+REGLAS:
+- Sin jerga estadística — explica como a un ejecutivo, no a un matemático
+- Cada hallazgo verificable: "si X supera Y" o "cuando Z"
+- Máximo 5 hallazgos rankeados por impacto
+- Incluye sección "Señales de Alerta" con 2-3 red flags (ej. media que engaña por skew)
+- Cierra con una recomendación de proceso o decisión
 
-INPUT DATA:
+DATOS DE ENTRADA:
 
-=== DATA AUDIT ===
+=== AUDITORÍA DE DATOS ===
 {recon_summary}
 
-=== EXPLORATORY ANALYSIS ===
+=== ANÁLISIS EXPLORATORIO ===
 {eda_summary}
 
-=== HYPOTHESIS TESTING ===
+=== PRUEBA DE HIPÓTESIS ===
 {hypothesis_summary}
 
-RESPONSE FORMAT (in Spanish):
-## Brief Editorial: Señales de Éxito Cross-Platform
+FORMATO DE RESPUESTA (en español):
+## Brief: Hallazgos Clave del Dataset
 
-### Criterios de Inclusión en Playlist
-1. [concrete verifiable signal]
+### Hallazgos Accionables
+1. [señal concreta verificable]
 2. ...
 3. ...
-4. ...
-5. ...
 
 ### Señales de Alerta
 - [red flag 1]
 - [red flag 2]
 
-### Recomendación de Proceso
-[1 paragraph with specific action for the editorial team]
+### Recomendación
+[1 párrafo con acción/decisión específica]
 """
 
 
@@ -81,11 +80,13 @@ def run_business_tx(
 
     if hypothesis_result:
         h_lines = []
-        for key in ["h1", "h2", "h3", "h4"]:
-            h = hypothesis_result.get(key, {})
+        for h in hypothesis_result.get("hypotheses", []):
             h_lines.append(
-                f"{h.get('hypothesis', key)}: {h.get('verdict', 'N/A')} — {h.get('statement', '')}"
+                f"{h.get('hypothesis')}: {h.get('verdict', 'N/A')} — {h.get('statement', '')} "
+                f"(r={h.get('pearson_r')}, p={h.get('pearson_p')})"
             )
+        for w in hypothesis_result.get("skew_warnings", []):
+            h_lines.append(f"SKEW: {w['column']} media={w['mean']} vs mediana={w['median']} — {w['note']}")
         h_lines.append("\nInterpretación: " + hypothesis_result.get("llm_interpretation", "N/A"))
         hypothesis_summary = "\n".join(h_lines)
     else:

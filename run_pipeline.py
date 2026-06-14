@@ -10,6 +10,7 @@ import sys
 sys.stdout.reconfigure(encoding='utf-8')
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -66,8 +67,25 @@ def run_pipeline(main_csv: str, competition_csv: str, outputs_dir: str = "output
     print("=" * 60)
 
     print("\nHypothesis verdicts:")
-    for h in ["h1", "h2", "h3", "h4"]:
-        print(f"  {h.upper()}: {hypothesis_result[h]['verdict']}")
+    for h in hypothesis_result.get("hypotheses", []):
+        print(f"  {h['hypothesis']}: {h['verdict']} ({h['statement']})")
+
+    # --- Eval JSON (Capa 5): captura hallazgos para benchmark/acumulación ---
+    eval_obj = {
+        "rows": eda_result.get("rows"),
+        "n_cols": eda_result.get("n_cols"),
+        "column_types": eda_result.get("column_types"),
+        "top_correlations": eda_result.get("top_correlations"),
+        "hypotheses": hypothesis_result.get("hypotheses"),
+        "skew_warnings": hypothesis_result.get("skew_warnings"),
+        "n_confirmed": hypothesis_result.get("n_confirmed"),
+        "n_tested": hypothesis_result.get("n_tested"),
+        "null_counts": recon_result.get("null_counts"),
+    }
+    eval_path = Path(outputs_dir) / "eval.json"
+    with open(eval_path, "w", encoding="utf-8") as f:
+        json.dump(eval_obj, f, indent=2, ensure_ascii=False, default=str)
+    print(f"\nEval → {eval_path}")
 
     print(f"\nOutputs saved to: {outputs_dir}")
     for f in Path(outputs_dir).glob("*"):
@@ -78,6 +96,7 @@ def run_pipeline(main_csv: str, competition_csv: str, outputs_dir: str = "output
         "eda": eda_result,
         "hypothesis": hypothesis_result,
         "brief": brief,
+        "eval": eval_obj,
     }
 
 
