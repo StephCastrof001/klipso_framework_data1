@@ -64,11 +64,20 @@ PERFIL ESTADÍSTICO:
     print("\n=== INTERPRETACIÓN (LLM) ===")
     print(response.content)
 
+    # Back-compat: keys que Model B (HITL) espera de A-v1. None si no aplican.
+    spotify_playlist_corr = None
+    if "streams" in df_merged.columns and "in_spotify_playlists" in df_merged.columns:
+        spotify_playlist_corr = float(df_merged["streams"].corr(df_merged["in_spotify_playlists"]))
+
     return {
+        # --- A-v2 agnóstico ---
         "rows": len(df_merged),
         "n_cols": df_merged.shape[1],
         "column_types": profile["types"],
         "top_correlations": profile["top_correlations"],
         "llm_interpretation": response.content,
         "df_merged": df_merged,
+        # --- back-compat A-v1 / Model B ---
+        "merge_rows": len(df_merged),
+        "spotify_playlist_corr": spotify_playlist_corr,
     }
