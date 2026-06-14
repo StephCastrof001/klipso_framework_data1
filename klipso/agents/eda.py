@@ -68,9 +68,15 @@ PERFIL ESTADÍSTICO:
         print(llm_text)
 
     # Back-compat: keys que Model B (HITL) espera de A-v1. None si no aplican.
+    # try/except: la columna puede no ser numérica (ej. fila corrupta en streams).
     spotify_playlist_corr = None
     if "streams" in df_merged.columns and "in_spotify_playlists" in df_merged.columns:
-        spotify_playlist_corr = float(df_merged["streams"].corr(df_merged["in_spotify_playlists"]))
+        try:
+            s = pd.to_numeric(df_merged["streams"], errors="coerce")
+            p = pd.to_numeric(df_merged["in_spotify_playlists"], errors="coerce")
+            spotify_playlist_corr = float(s.corr(p))
+        except Exception:
+            spotify_playlist_corr = None
 
     return {
         # --- A-v2 agnóstico ---
