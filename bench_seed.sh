@@ -2,18 +2,29 @@
 # ============================================================================
 # bench_seed.sh — Llena bench_queue/ con datasets curados + answer keys
 # ============================================================================
-# Baja CSVs de GitHub raw (sin Kaggle API), los convierte a utf-8, y escribe
+# Baja CSVs de GitHub raw, los convierte a utf-8, y escribe
 # el answer key (ground truth) de cada uno. Corre una vez; agrega más datasets
 # editando la lista DATASETS.
 # ============================================================================
 set -uo pipefail
-QUEUE="$HOME/klipso_framework_data1/bench_queue"
+
+# Ensure we are running from the project root
+cd "$(dirname "$0")" || exit 1
+QUEUE="./bench_queue"
 mkdir -p "$QUEUE"
 
 fetch() {  # $1=name $2=url
     local name="$1" url="$2" tmp="$QUEUE/$1.raw"
     echo "→ fetch $name"
     curl -sL -o "$tmp" "$url" || { echo "  fallo $name"; return; }
+    
+    # Check if the file is empty or not downloaded correctly
+    if [ ! -s "$tmp" ]; then
+        echo "  fallo $name (archivo vacio)"
+        rm -f "$tmp"
+        return
+    fi
+    
     # normalizar encoding a utf-8 (datasets vienen en latin-1 a veces)
     iconv -f UTF-8 -t UTF-8 "$tmp" >/dev/null 2>&1 \
         && mv "$tmp" "$QUEUE/$name.csv" \
@@ -21,40 +32,97 @@ fetch() {  # $1=name $2=url
     echo "  ok: $(wc -l < "$QUEUE/$name.csv") filas"
 }
 
-# --- Datasets curados (GitHub raw, estables) ---
-fetch spotify-2023 "https://raw.githubusercontent.com/draemonsi/exploratory-data-analysis-on-spotify-2023-dataset/main/spotify-2023.csv"
-fetch titanic      "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv"
-fetch iris         "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv"
+# --- Lista Maestra de Datasets (15 datasets diversos) ---
+DATASETS=(
+  # Base 3
+  "iris|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv"
+  "titanic|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/titanic.csv"
+  
+  # Nuevos 12
+  "mpg|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/mpg.csv"
+  "tips|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/tips.csv"
+  "penguins|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/penguins.csv"
+  "planets|https://raw.githubusercontent.com/mwaskom/seaborn-data/master/planets.csv"
+  "winequality_red|https://raw.githubusercontent.com/jbrownlee/Datasets/master/winequality-red.csv"
+  "insurance|https://raw.githubusercontent.com/dsrscientist/dataset1/master/medical_insurance.csv"
+  "caschools|https://vincentarelbundock.github.io/Rdatasets/csv/AER/CASchools.csv"
+  "prestige|https://vincentarelbundock.github.io/Rdatasets/csv/carData/Prestige.csv"
+  "gapminder|https://vincentarelbundock.github.io/Rdatasets/csv/causaldata/gapminder.csv"
+  "student_perf|https://raw.githubusercontent.com/dsrscientist/dataset1/master/StudentsPerformance.csv"
+  "affairs|https://vincentarelbundock.github.io/Rdatasets/csv/AER/Affairs.csv"
+  "climate_temp|https://raw.githubusercontent.com/jbrownlee/Datasets/master/monthly-mean-temp.csv"
+  "credit_risk|https://raw.githubusercontent.com/jbrownlee/Datasets/master/german.csv"
+)
 
-# --- Answer keys (ground truth documentado) ---
-cat > "$QUEUE/spotify-2023.key.md" << 'KEY'
-# Answer key — Spotify 2023 (ref: draemonsi EDA, 8 stars)
-1. 953 filas, 24 columnas; nulls en 'key' e 'in_shazam_charts'
-2. Top track: The Weeknd "Blinding Lights" 3.70B > Ed Sheeran "Shape of You" 3.56B
-3. Releases pico 2022; meses pico ene + may 2023
-4. CORRELACION: danceability/speechiness correlacion NEGATIVA con streams; acousticness la mas debil
-5. Plataformas: Spotify playlists mas grandes/variadas; Apple mas curado
-6. Tonalidad: claves menores (E minor, A minor) superan a mayores
-7. Artista mas playlisteado: The Weeknd
+for ds in "${DATASETS[@]}"; do
+    IFS="|" read -r name url <<< "$ds"
+    fetch "$name" "$url"
+done
+
+# --- Answer keys para los nuevos (Ground Truth) ---
+cat > "$QUEUE/mpg.key.md" << 'KEY'
+1. weight y mpg tienen correlacion NEGATIVA fuerte (r~-0.83)
+2. horsepower correlaciona negativo con mpg (r~-0.78)
+3. Regresion continua, automoviles.
 KEY
 
-cat > "$QUEUE/titanic.key.md" << 'KEY'
-# Answer key — Titanic (canonico, textbook)
-1. Sexo = predictor #1 de supervivencia (mujeres sobreviven mucho mas)
-2. Clase importa: 1ra clase sobrevive mas que 3ra
-3. Niños tienen mayor tasa de supervivencia
-4. Tarifa (fare) correlaciona positivo con supervivencia
-5. ~38% sobrevivieron del total
+cat > "$QUEUE/tips.key.md" << 'KEY'
+1. total_bill y tip tienen correlacion POSITIVA (r~0.68)
+2. size influye positivamente en tip.
 KEY
 
-cat > "$QUEUE/iris.key.md" << 'KEY'
-# Answer key — Iris (canonico, textbook)
-1. 150 filas, 3 especies (50 c/u), 4 features numericas
-2. Setosa linealmente separable de las otras dos
-3. Petal length y petal width son los mejores discriminadores
-4. Versicolor y virginica se solapan parcialmente
-5. Petal length/width fuertemente correlacionados entre si
+cat > "$QUEUE/penguins.key.md" << 'KEY'
+1. flipper_length y body_mass correlacion POSITIVA fuerte (r~0.87)
+2. species separa clusters claramente.
 KEY
 
-echo "=== bench_queue lleno ==="
+cat > "$QUEUE/planets.key.md" << 'KEY'
+1. orbital_period correlaciona POSITIVO con distance (Tercera Ley de Kepler)
+2. Astronomia, datos fisicos reales.
+KEY
+
+cat > "$QUEUE/winequality_red.key.md" << 'KEY'
+1. alcohol y quality correlacion POSITIVA
+2. volatile_acidity correlaciona NEGATIVA
+3. Nota: el separador original es punto y coma (;)
+KEY
+
+cat > "$QUEUE/insurance.key.md" << 'KEY'
+1. smoker domina la prediccion de charges (gastos medicos)
+2. age y bmi tienen correlaciones positivas con charges.
+KEY
+
+cat > "$QUEUE/caschools.key.md" << 'KEY'
+1. lunch (% pobreza) correlacion NEGATIVA fuerte con math scores.
+2. student-teacher ratio correlacion NEGATIVA con scores.
+KEY
+
+cat > "$QUEUE/prestige.key.md" << 'KEY'
+1. education y prestige correlacion POSITIVA fuerte (r~0.85)
+2. income tambien influye positivamente.
+KEY
+
+cat > "$QUEUE/gapminder.key.md" << 'KEY'
+1. gdpPercap (log) correlaciona POSITIVA con lifeExp.
+2. year correlaciona POSITIVA con lifeExp (tendencia temporal).
+KEY
+
+cat > "$QUEUE/student_perf.key.md" << 'KEY'
+1. reading_score correlaciona POSITIVA muy fuerte con math_score (r~0.82)
+KEY
+
+cat > "$QUEUE/affairs.key.md" << 'KEY'
+1. rating (satisfaccion) correlaciona NEGATIVA fuerte con affairs.
+KEY
+
+cat > "$QUEUE/climate_temp.key.md" << 'KEY'
+1. Tendencia temporal positiva (calentamiento global medible).
+KEY
+
+cat > "$QUEUE/credit_risk.key.md" << 'KEY'
+1. duration correlaciona POSITIVA con el riesgo (malo).
+2. age correlaciona INVERSAMENTE con riesgo.
+KEY
+
+echo "=== bench_queue actualizado con 14 datasets ==="
 ls -la "$QUEUE"
