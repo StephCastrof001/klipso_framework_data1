@@ -55,12 +55,13 @@ cierre sin timeout. La comparación vs answer key es OTRA cosa (ver Adjudicació
 | Dataset | con-LLM (default) | sin-LLM-intermedio (flag) | corrió completo |
 |---|---|---|---|
 | Titanic | 🔴 timeout 600s | ✅ **218s exit 0** | ✅ eval.json + brief |
-| Spotify | 🔴 timeout | (midiendo) | (pendiente) |
+| Spotify | 🔴 timeout | ✅ **202s exit 0** | ✅ eval.json + brief |
 
-**Veredicto del experimento E-LLM-FINAL (solo velocidad/robustez):** confirmado.
-600s timeout → 218s éxito, 2.75x más rápido, sin perder el eval. Cumple el diseño
-"IA solo al final" + más barato (1 llamada vs 3).
-DECISIÓN si Spotify confirma: `LLM_INTERMEDIATE=false` pasa a default.
+**Veredicto del experimento E-LLM-FINAL (solo velocidad/robustez):** ✅ CONFIRMADO 2/2.
+600s timeout → ~210s éxito en ambos, sin perder el eval. Cumple el diseño "IA solo al
+final" + más barato (1 llamada vs 3).
+**DECISIÓN APLICADA (2026-06-14):** `LLM_INTERMEDIATE=false` es el default. EC2 .env +
+.env.example actualizados. Código mantiene fallback `true` (reversible).
 
 > ⚠️ ESTO NO DICE que nuestro análisis sea CORRECTO — solo que corre rápido y sin error.
 
@@ -75,7 +76,25 @@ Hay que adjudicar: revisar el cálculo de ambos y decidir quién está bien.
 | Dataset | Nuestro hallazgo | Answer key (ref) | ¿Coincide? | Adjudicación |
 |---|---|---|---|---|
 | Titanic | Pclass↔Fare r=-0.549; skew Fare=4.79 | "clase importa; 1ra paga más" | aparente sí | pendiente revisar nº exacto |
-| Spotify | (midiendo) | "danceability/speechiness corr NEG con streams" | ? | pendiente |
+| Spotify | **streams NO se analiza** (quedó categórico) | "danceability/speechiness corr NEG con streams" | ❌ no medimos | **gap NUESTRO** ↓ |
+
+### Hallazgo de adjudicación Spotify (el más importante)
+
+`streams` (la variable TARGET) quedó clasificada CATEGÓRICA por el profiler, porque el
+CSV tiene fila(s) corruptas (`'BPM110KeyA...'` pegado) que vuelven la columna `object`.
+El profiler agnóstico es conservador: unos valores no-numéricos → toda la columna a
+categórica → excluida de correlaciones. **Resultado: no medimos la correlación que el
+answer key reporta como headline.**
+
+- **draemonsi (ref):** limpió streams (coerción a numérico, dropeó la fila mala) → pudo
+  medir danceability↔streams. Más completo en este punto.
+- **Nosotros:** saltamos streams entero. El agnóstico es robusto (no crashea) pero
+  pierde el target.
+
+**No es "ellos aciertan, nosotros no" en general** — es un gap específico de robustez
+del profiler. FIX futuro (Unit G-coerce): `pd.to_numeric(errors='coerce')`; si >90% de
+los valores son numéricos, tratar como numérica y dropear las filas basura. Eso recupera
+el target sin perder la robustez. Queda como deuda priorizada.
 
 **Regla:** una coincidencia aparente NO cierra el caso. Adjudicar = comparar el número
 real de ambos lados. Si difieren, investigar el cálculo (¿nosotros mal? ¿ellos mal?).
