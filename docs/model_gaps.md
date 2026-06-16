@@ -94,3 +94,25 @@ Dos casos, dos arquitecturas. `klipso_data_2` sería una tercera. El fix de #1 r
 4. 🔴 **Refinar + construir Model B** — core de "demostrar A/B/C"
 5. 🔴 **Construir Model C** — core de "demostrar A/B/C"
 6. 🎯 **Tabla comparativa A/B/C ejecutada** — el deliverable que prueba la tesis
+
+---
+
+## Gap #4 — Datasets messy reales: 4/5 fallan, no son timeouts transitorios (NUEVO)
+
+**Cómo se detectó:** experimento `E-MESSY-RETRY` en `docs/VERSIONS_modelo_a.md`,
+2 corridas controladas el 2026-06-16. Hipótesis "era flakiness" REFUTADA — diff
+de los 2 logs muestra error idéntico ambas veces.
+
+**Dos bugs separados, no uno:**
+
+| Bug | Datasets afectados | Causa raíz | Fix propuesto |
+|---|---|---|---|
+| Timeout 300s insuficiente | hr_messy, healthcare_messy, warehouse_messy | Ollama 9B local tarda más de 300s en datasets messy grandes — no es retry, es timeout corto | Unit `fix-ollama-timeout-messy`: subir `read timeout` o medir tamaño input y escalar |
+| Encoding no-UTF8 | imdb_messy | `pd.read_csv` asume UTF-8, CSV viene en otro encoding — falla ANTES de tocar el LLM | Unit `fix-csv-encoding-detect`: detectar encoding (chardet o fallback latin-1) al leer |
+
+**Contradice:** el framework NUNCA fue testeado contra datasets messy reales hasta
+este experimento — Spotify/Titanic/Airbnb/Iris ya venían razonablemente limpios.
+"Dataset-agnostic" (objetivo de Gap #1) no implica "tolerante a mugre real".
+
+**Estado:** 🔴 diagnosticado, sin fix. 2 Units a escribir, requieren confirmación
+del usuario antes de mandarse a Aider (gobernanza HIS).

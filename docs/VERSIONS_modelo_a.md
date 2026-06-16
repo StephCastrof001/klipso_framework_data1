@@ -126,3 +126,42 @@ SI falla:
 
 Regla: cada modelo es un experimento válido. Se documenta, se mide, se decide.
 Ninguno se borra — se versiona.
+
+---
+
+## Experimento E-MESSY-RETRY: ¿los timeouts en datasets messy eran transitorios?
+
+**Hipótesis:** los fallos en `hr_messy`, `healthcare_messy`, `warehouse_messy`,
+`imdb_messy` fueron flakiness de red/Ollama. Un re-run con misma config los pasa.
+
+**Versionar:** sin branch — mismo código (`a5523a3` HEAD), dos corridas manuales
+(`/tmp/eval_messy.log` 2026-06-16T13:13, `/tmp/eval_messy2.log` 2026-06-16T17:45).
+
+**Controlar:** una sola variable (tiempo entre corridas). Mismo pipeline, mismos
+inputs, mismo `.env`.
+
+**Medir (DONE WHEN):** comparar ambos logs línea por línea.
+
+**Resultado — el árbitro habló (diff de los dos logs):**
+
+| Dataset | Run 1 | Run 2 | Diagnóstico |
+|---|---|---|---|
+| hr_messy | timeout Ollama 300s | timeout Ollama 300s | reproducible, NO transitorio |
+| healthcare_messy | timeout Ollama 300s | timeout Ollama 300s | reproducible, NO transitorio |
+| warehouse_messy | timeout Ollama 300s | timeout Ollama 300s | reproducible, NO transitorio |
+| imdb_messy | `UnicodeDecodeError` byte 0xca | mismo error | reproducible — bug DISTINTO, ni toca el LLM |
+| ds_jobs_uncleaned | ok, R²=0.6076 | ok, R²=0.6076 | único dataset messy que corre |
+
+**Veredicto:** ❌ HIPÓTESIS REFUTADA. No es flakiness de red. Son 2 bugs reales y
+separados:
+1. `read timeout=300` insuficiente para el 9B local en datasets messy grandes
+   (no es retry — el propio timeout de 300s es corto para el tamaño de input).
+2. `imdb_messy` falla por encoding no-UTF8 al leer el CSV — error previo a
+   cualquier llamada LLM, bug del lector de datos, no del provider.
+
+**Decisión aplicada:** NO se mergea nada todavía — esto es diagnóstico, no fix.
+Se abren 2 Units separadas (no mezclar causas distintas en un solo cambio):
+- `fix-ollama-timeout-messy`
+- `fix-csv-encoding-detect`
+
+Ver `docs/model_gaps.md` Gap #4 (nuevo).
